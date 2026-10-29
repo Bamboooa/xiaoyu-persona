@@ -1,0 +1,40 @@
+services:
+  # QQ 登录端：NapCat（第三方协议注入，扫码登录小号）
+  napcat:
+    image: mlikiowa/napcat-docker:latest
+    container_name: napcat
+    restart: unless-stopped
+    environment:
+      - NAPCAT_UID=1000
+      - NAPCAT_GID=1000
+      - WEBUI_TOKEN=${NAPCAT_WEBUI_TOKEN:-changeme}
+    ports:
+      - "6099:6099"          # NapCat 面板（扫码登录、网络配置）
+    volumes:
+      - ./napcat/config:/app/napcat/config
+      - ./napcat/qq:/app/.config/QQ
+    networks: [fishnet]
+
+  # 大脑：AstrBot（面板 + OneBot 反向 WS + 插件）
+  astrbot:
+    image: soulter/astrbot:latest
+    container_name: astrbot
+    restart: unless-stopped
+    environment:
+      # 插件用：Docker 内网里 NapCat 的服务名是 napcat
+      - NAPCAT_WS=ws://napcat:6700
+      - PROACTIVE_GROUP=${PROACTIVE_GROUP:-624707019}
+      - XIAOYU_STICKER_DIR=/AstrBot/data/personas/stickers
+      - TZ=Asia/Shanghai
+    ports:
+      - "6185:6185"          # AstrBot 面板
+      - "6199:6199"          # OneBot 反向 WS（NapCat 连进来）
+    volumes:
+      - ./astrbot/data:/AstrBot/data
+      - ./astrbot/packages:/AstrBot/packages
+    depends_on: [napcat]
+    networks: [fishnet]
+
+networks:
+  fishnet:
+    driver: bridge

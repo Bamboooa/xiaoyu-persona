@@ -1,4 +1,4 @@
-"""鱼的手 —— 让 bot 能自己动手改资料 / 点赞。
+﻿"""鱼的手 —— 让 bot 能自己动手改资料 / 点赞。
 
 暴露 6 个 LLM 工具：
 - get_my_likes       读：看谁给我点过赞（只读，用来自检链路）
@@ -32,9 +32,9 @@ from . import memory
 
 DATA_DIR = Path(__file__).parent / "data"
 LIMIT_FILE = DATA_DIR / "daily_counts.json"
-STICKER_DIR = Path(r"D:\dsh-workspace\projects\astrbot\data\personas\stickers")
-NAPCAT_WS = "ws://127.0.0.1:6700"
-PROACTIVE_GROUP = "624707019"
+STICKER_DIR = Path(os.environ.get("XIAOYU_STICKER_DIR", str(Path(__file__).parent.parent.parent / "personas" / "stickers")))
+NAPCAT_WS = os.environ.get("NAPCAT_WS", "ws://127.0.0.1:6700")
+PROACTIVE_GROUP = os.environ.get("PROACTIVE_GROUP", "624707019")
 STICKER_PROB = 0.35          # 每次回复顺手带表情包的概率
 PROACTIVE_CAP = 8            # 每天主动冒泡上限
 AUDIT_FILE = DATA_DIR / "audit.jsonl"
@@ -647,6 +647,7 @@ class FishHands(Star):
 
     async def terminate(self):
         logger.info("[fish_hands] 已卸载")
+
 
 
 

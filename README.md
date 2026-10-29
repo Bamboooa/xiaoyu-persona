@@ -49,6 +49,18 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 - **发说说**：`publish_qzone` 每天最多 **3 条**，优先从没发过的记忆里挑，发过会标记 `shared=1`
 - **主动冒泡**：每 **4~6 小时**触发一次，40% 发说说 / 35% 表情包 / 25% 冒一句，每天最多 8 次，8:00~次日 1:59
 
+## 让它在关机后继续跑（云端 7×24）
+
+本机部署只在你开机时有效。要 7×24 在线，用 `cloud\` 目录里的 Docker 方案：
+
+```bash
+# 服务器上
+cd /opt/xiaoyu/cloud && cp .env.example .env && docker compose up -d
+```
+
+两份文件：`cloud/docker-compose.yml`（NapCat + AstrBot）、`cloud/README.md`（从买机器到扫码登录的完整步骤）。
+本机数据用一个脚本打包搬过去：`powershell -ExecutionPolicy Bypass -File .\migrate-pack.ps1`
+
 ## 目录
 
 ```
@@ -90,4 +102,5 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1 -SkipAstrBot -SkipSticker
 ## 许可
 
 人格文本基于社区二创「大肥鱼」改写（[diwer/ai-biaoqingbao](https://github.com/diwer/ai-biaoqingbao) 提供表情包），仅供个人自用。
+
 
