@@ -176,6 +176,25 @@ $patchFile = Join-Path $env:TEMP "xiaoyu_patch.py"
 [System.IO.File]::WriteAllText($patchFile, $pyPatch, $utf8)
 & python $patchFile $Root $personaSrc
 
+# ---------- 5b. 核心补丁：群聊消息带 QQ 号（防认错人） ----------
+Step "5b" "给 AstrBot 打「群聊消息带 QQ 号」补丁"
+$gcc = Join-Path $Root "astrbot\builtin_stars\astrbot\group_chat_context.py"
+if (Test-Path $gcc) {
+    $src = [IO.File]::ReadAllText($gcc, [Text.Encoding]::UTF8)
+    $old = 'parts = [f"[{event.message_obj.sender.nickname}/{datetime_str}]: "]'
+    $new = "_nick = event.message_obj.sender.nickname or `"`"`r`n        _uid = event.message_obj.sender.user_id or `"`"`r`n        parts = [f`"[{_nick}({_uid})/{datetime_str}]: `"]"
+    if ($src.Contains($old)) {
+        [IO.File]::WriteAllText($gcc, $src.Replace($old, $new), (New-Object System.Text.UTF8Encoding($false)))
+        Ok "已打补丁（消息前缀改为 昵称(QQ号)/时间）"
+    } elseif ($src.Contains('_uid')) {
+        Ok "已有补丁，跳过"
+    } else {
+        Warn "没匹配到目标行（AstrBot 版本可能变了），需要手工处理"
+    }
+} else {
+    Warn "找不到 group_chat_context.py，可能 AstrBot 装在别处"
+}
+
 # ---------- 6. 收尾 ----------
 Step 6 "完成"
 Write-Host @"

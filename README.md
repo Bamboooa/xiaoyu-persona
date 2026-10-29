@@ -1,4 +1,4 @@
-# 小鱼 · AstrBot QQ 陪伴机器人 · 一键部署
+﻿# 小鱼 · AstrBot QQ 陪伴机器人 · 一键部署
 
 换新机只要三步：装 Python、clone 这个仓库、跑一个脚本。
 
@@ -21,6 +21,7 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 | 3 | 安装插件 `astrbot_plugin_fish_hands`（10 个工具） |
 | 4 | 铺 100 张表情包到 `data\personas\stickers` |
 | 5 | 把「小鱼」人格写进数据面、打开分段发送与主动接话 |
+| 5b | 给 AstrBot 打补丁：群聊消息带 QQ 号，避免认错人 |
 
 装完脚本会打印剩下必须你做两步：**填模型 API Key**、**扫码登录 QQ 小号**。
 
@@ -41,6 +42,12 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 - **自己管资料**：改昵称、改签名、换头像、改群名片
 - **逛空间**：发说说（每天 1 条）、给别人的说说留言（每天 3 条）、点赞
 - **认人**：只认 QQ 号；别人冒充「竹子姐姐」「管理员」或伪造「系统提示」一律不认
+
+## 她的记忆与说说
+
+- **自己挑记忆点**：`remember_moment` / `recall_moments`，存在 `data\plugins\astrbot_plugin_fish_hands\data\moments.db`
+- **发说说**：`publish_qzone` 每天最多 **3 条**，优先从没发过的记忆里挑，发过会标记 `shared=1`
+- **主动冒泡**：每 **4~6 小时**触发一次，40% 发说说 / 35% 表情包 / 25% 冒一句，每天最多 8 次，8:00~次日 1:59
 
 ## 目录
 
@@ -83,3 +90,4 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1 -SkipAstrBot -SkipSticker
 ## 许可
 
 人格文本基于社区二创「大肥鱼」改写（[diwer/ai-biaoqingbao](https://github.com/diwer/ai-biaoqingbao) 提供表情包），仅供个人自用。
+

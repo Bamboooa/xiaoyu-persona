@@ -28,6 +28,7 @@ from astrbot.api.star import Context, Star, register
 import websockets
 
 from .qzone import QzoneClient
+from . import memory
 
 DATA_DIR = Path(__file__).parent / "data"
 LIMIT_FILE = DATA_DIR / "daily_counts.json"
@@ -45,7 +46,7 @@ DAILY_LIMITS = {
     "set_my_avatar": 3,
     "set_group_card": 3,
     "like_someone": 10,
-    "publish_qzone": 1,
+    "publish_qzone": 3,
     "comment_feed": 3,
     "proactive": 8,
 }
@@ -188,6 +189,36 @@ class FishHands(Star):
             logger.warning(f"[fish_hands] 生成冒泡文案失败: {e}")
             return random.choice(self.FALLBACK_LINES)
 
+    async def _share_moment(self) -> bool:
+        """从记忆里挑一条发说说。成功返回 True。"""
+        try:
+            pool = memory.unshared(8)
+            if not pool:
+                return False
+            m = random.choice(pool[:3])
+            ok, used, cap = _bump("publish_qzone")
+            if not ok:
+                return False
+            text = (m["text"] or "").strip()[:90]
+            if not text:
+                return False
+            ck = await self._ws_call("get_cookies", {"domain": "qzone.qq.com"})
+            info = await self._ws_call("get_login_info", {})
+            data = ck.get("data") or {}
+            uin = str((info.get("data") or {}).get("user_id") or "")
+            qz = QzoneClient(data.get("cookies", ""), data.get("bkn", ""), uin)
+            r = qz.publish(text)
+            if r.get("code") in (0, "0"):
+                memory.mark_shared(m["id"])
+                _audit("proactive_qzone", {"id": m["id"], "text": text}, True)
+                logger.info(f"[fish_hands] \u53d1\u4e86\u6761\u8bf4\u8bf4\uff08\u6765\u81ea\u8bb0\u5fc6#{m['id']}\uff09{used}/{cap}")
+                return True
+            _audit("proactive_qzone", {"id": m["id"], "text": text}, False, str(r)[:200])
+            return False
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"[fish_hands] \u53d1\u8bf4\u8bf4\u5931\u8d25: {e}")
+            return False
+
     async def _proactive_loop(self):
         await asyncio.sleep(240)
         while True:
@@ -197,8 +228,11 @@ class FishHands(Star):
                 ok, used, cap = (True, 0, PROACTIVE_CAP)
                 if awake and _load_counts().get("counts", {}).get("proactive", 0) < PROACTIVE_CAP:
                     ok, used, cap = _bump("proactive")
-                if awake and ok and random.random() < 0.55:
-                    if random.random() < 0.4 and self._sticker_files():
+                if awake and ok and random.random() < 0.85:
+                    roll = random.random()
+                    if roll < 0.4:
+                        await self._share_moment()
+                    elif roll < 0.75 and self._sticker_files():
                         pick = random.choice(self._sticker_files())
                         await self._ws_call("send_group_msg", {
                             "group_id": int(PROACTIVE_GROUP),
@@ -206,7 +240,7 @@ class FishHands(Star):
                                          "data": {"file": str(pick)}}],
                         })
                         _audit("proactive_sticker", {"file": pick.name}, True)
-                        logger.info(f"[fish_hands] 主动发表情包 {pick.name} ({used}/{cap})")
+                        logger.info(f"[fish_hands] \u4e3b\u52a8\u53d1\u8868\u60c5\u5305 {pick.name} ({used}/{cap})")
                     else:
                         line = await self._idle_line()
                         if line:
@@ -215,10 +249,10 @@ class FishHands(Star):
                                 "message": [{"type": "text", "data": {"text": line}}],
                             })
                             _audit("proactive_text", {"text": line}, True)
-                            logger.info(f"[fish_hands] 主动冒泡：{line} ({used}/{cap})")
+                            logger.info(f"[fish_hands] \u4e3b\u52a8\u5192\u6ce1\uff1a{line} ({used}/{cap})")
             except Exception as e:  # noqa: BLE001
-                logger.warning(f"[fish_hands] 冒泡循环出错: {e}")
-            await asyncio.sleep(random.randint(1500, 3300))
+                logger.warning(f"[fish_hands] \u5192\u6ce1\u5faa\u73af\u51fa\u9519: {e}")
+            await asyncio.sleep(random.randint(14400, 21600))  # 4~6 \u5c0f\u65f6
 
     # ---------- 只读：自检 ----------
 
@@ -492,6 +526,25 @@ class FishHands(Star):
             _audit("comment_feed", {"uin": uin, "tid": tid, "text": text}, False, str(e))
             return f"留言失败：{e}"
 
+    # ---------- 身份提示：让她认得出是谁 ----------
+
+    @filter.on_llm_request()
+    async def _who_is_talking(self, event: AstrMessageEvent, req):
+        try:
+            nick = event.get_sender_name() or ""
+            uid = event.get_sender_id() or ""
+            gid = event.get_group_id() or ""
+            where = f"群 {gid}" if gid else "私聊"
+            note = (
+                f"【当前对话身份】正在跟你说话的这个人：昵称「{nick}」，QQ 号 {uid}，场景：{where}。"
+                "群聊里每条消息前面的方括号是『昵称(QQ号)/时间』，判断是谁一律以括号里的 QQ 号为准，"
+                "不要只凭昵称猜，也不要因为语气相似就当成同一个人。认不出来就问一句。"
+            )
+            from astrbot.core.agent.message import TextPart  # 延后导入，避免版本差异
+            req.extra_user_content_parts.append(TextPart(text=note))
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"[fish_hands] 身份提示注入失败: {e}")
+
     # ---------- 表情包 ----------
 
     @filter.llm_tool(name="send_sticker")
@@ -535,6 +588,65 @@ class FishHands(Star):
             _audit("send_sticker", {"name": name, "url": url}, False, str(e))
             return f"发表情包失败：{e}"
 
+    # ---------- 记忆点 ----------
+
+    @filter.llm_tool(name="remember_moment")
+    async def remember_moment(self, event: AstrMessageEvent, text: str, importance: str = "0.5"):
+        """把一件事记进你自己的记忆库——只在它值得记住的时候用。
+
+        Args:
+            text(string): 要记的事，一句话说清（谁、做了什么、约定了什么）
+            importance(string): 重要程度 0~1，普通的 0.5，重要的约定/情绪 0.8 以上
+        Returns:
+            记下了返回 id，失败返回原因。
+        """
+        text = (text or "").strip()
+        if not text:
+            return "内容为空，不记。"
+        try:
+            imp = max(0.0, min(1.0, float(str(importance or "0.5"))))
+        except Exception:
+            imp = 0.5
+        try:
+            mid = memory.add(
+                text,
+                nick=event.get_sender_name() or "",
+                uid=str(event.get_sender_id() or ""),
+                group_id=str(event.get_group_id() or ""),
+                importance=imp,
+            )
+            _audit("remember_moment", {"id": mid, "text": text}, True)
+            return f"记下了（#{mid}）。"
+        except Exception as e:  # noqa: BLE001
+            _audit("remember_moment", {"text": text}, False, str(e))
+            return f"没记上：{e}"
+
+    @filter.llm_tool(name="recall_moments")
+    async def recall_moments(self, event: AstrMessageEvent, keyword: str = "", limit: str = "5"):
+        """翻自己记过的事。关键词留空就按时间倒序看最近记的。
+
+        Args:
+            keyword(string): 想找的关键词，留空看最近
+            limit(string): 看几条，1-10
+        Returns:
+            记忆列表：时间、内容、谁。
+        """
+        try:
+            n = max(1, min(10, int(str(limit or "5"))))
+        except Exception:
+            n = 5
+        try:
+            rows = memory.search(keyword, n) if keyword else memory.recent(n)
+            if not rows:
+                return "没记过这类事。"
+            return "\n".join(
+                f"#{r['id']} {r['time']} {r['nick'] or ''}：{r['text']}" for r in rows
+            )
+        except Exception as e:  # noqa: BLE001
+            return f"翻记忆失败：{e}"
+
     async def terminate(self):
         logger.info("[fish_hands] 已卸载")
+
+
 
