@@ -1,0 +1,8 @@
+name: astrbot_plugin_fish_hands
+display_name: 鱼的手
+author: fish-hands
+version: 0.1.0
+desc: 给机器人「自己动手」的能力：改昵称、改签名、换头像、改群名片、点赞，全部带每日次数上限与审计日志。
+short_desc: 让 bot 自己改资料、点赞
+repo: local
+astrbot_version: ">=4.11.0"
