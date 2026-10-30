@@ -10,10 +10,16 @@
 
 | # | 是什么 | 在哪拿 |
 |---|---|---|
-| 1 | **她的备份包** `xiaoyu_full_*.tar.gz`（约 90MB） | 服务器 `/opt/xiaoyu/backup/`，务必下载到你本地 |
+| 1 | **她的核心备份包** `xiaoyu_core_*.tar.gz`（**只有 2.5MB**） | 服务器 `/opt/xiaoyu/backup/`，也要下载到你本地 |
 | 2 | **服务器 SSH 密码**（ubuntu 用户） | 腾讯云控制台 → 轻量应用服务器 → 重置密码 |
 | 3 | **DeepSeek API Key** | platform.deepseek.com |
 | 4 | **GitHub token**（新生成的，只在推送时用，不写进任何文件） | github.com/settings/tokens |
+
+**核心包里有什么**：她的家（`xiaoyu_home` 全部）、记忆库、成长库、人格、配置、看板代码。
+**核心包里没有什么**：语音模型、照片原图 —— 那些能重下，不必背着。
+
+> 完整包（含模型和照片）约 82MB，服务器上也有 `xiaoyu_full_*.tar.gz`。
+> 服务器带宽只有 4Mbps，82MB 容易传一半断掉；**2.5MB 的核心包才适合远程保存**。
 
 另有两样**会过期**，恢复后要重新弄：
 
@@ -55,12 +61,20 @@ sudo docker compose up -d
 
 ```bash
 # 服务器上，把备份包放上去
-scp xiaoyu_full_*.tar.gz ubuntu@你的服务器IP:/tmp/
+scp xiaoyu_core_*.tar.gz ubuntu@你的服务器IP:/tmp/
 
 # 解到正确位置
 cd /opt/xiaoyu/cloud/astrbot/data
-sudo tar xzf /tmp/xiaoyu_full_*.tar.gz
+sudo tar xzf /tmp/xiaoyu_core_*.tar.gz
 sudo chown -R root:root /opt/xiaoyu/cloud/astrbot/data
+
+# 补上不备份的东西（她的语音模型）
+cd /opt/xiaoyu/cloud/astrbot/data/xiaoyu_home/耳朵
+sudo wget https://alphacephei.com/vosk/models/vosk-model-small-cn-0.22.zip
+sudo unzip -q vosk-model-small-cn-0.22.zip && sudo rm vosk-model-small-cn-0.22.zip
+# 装依赖
+sudo docker exec astrbot pip install -i https://pypi.tuna.tsinghua.edu.cn/simple \
+  --no-cache-dir --target /AstrBot/data/site-packages vosk
 
 # 重启
 cd /opt/xiaoyu/cloud && sudo docker compose restart astrbot
