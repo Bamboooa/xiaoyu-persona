@@ -1,8 +1,36 @@
-﻿.DS_Store
+﻿# 系统垃圾
+.DS_Store
 Thumbs.db
 __pycache__/
 *.pyc
 .venv/
+
+# 运行时数据
 data/
 logs/
+
+# —— 以下绝不能进仓库 ——
+# 服务器密码、凭证
+cloud/SERVER-STATUS.txt
+*.env
+.env
+.env.*
+!.env.example
+*key*
+*token*
+*secret*
+
+# 她的私人存档（备份包、照片、记忆）
+backup/
+xiaoyu_home/
+*.tar.gz
+*.db
+*.db.bak
+
+# 工具脚本（里面带过 token）
 _push_via_api.py
+
+# 例外：脱敏后的快照包可以进仓库
+!snapshots/
+!snapshots/*.tar.gz
+
